@@ -1,0 +1,75 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String             @id @default(uuid())
+  email            String             @unique
+  passwordHash     String             @map("password_hash")
+  timezone         String             @default("UTC") // E.g., "America/New_York", "Asia/Kolkata"
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  
+  habits           Habit[]
+  reminderSettings ReminderSetting?
+  pushSubscriptions PushSubscription[]
+
+  @@map("users")
+}
+
+model Habit {
+  id            String     @id @default(uuid())
+  userId        String     @map("user_id")
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  frequency     String     @default("DAILY") // Options: DAILY, WEEKLY, CUSTOM
+  specificDays  Int[]      @map("specific_days") // 0 (Sunday) to 6 (Saturday) for CUSTOM frequency
+  currentStreak Int        @default(0) @map("current_streak")
+  longestStreak Int        @default(0) @map("longest_streak")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  
+  logs          HabitLog[]
+
+  @@map("habits")
+}
+
+model HabitLog {
+  id          String   @id @default(uuid())
+  habitId     String   @map("habit_id")
+  habit       Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  date        String   @map("date") // Format: "YYYY-MM-DD" in user's timezone
+  completedAt DateTime @default(now()) @map("completed_at") // Actual UTC timestamp of completion
+
+  @@unique([habitId, date]) // A habit can only be logged once per local calendar date
+  @@map("habit_logs")
+}
+
+model ReminderSetting {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  time      String   // E.g., "20:00" representing local execution time
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("reminder_settings")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  auth      String
+  p256dh    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("push_subscriptions")
+}
