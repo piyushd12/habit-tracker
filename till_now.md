@@ -1,6 +1,6 @@
 # Habit Tracker — Implementation Status (Handoff)
 
-Last updated: 2026-08-09 (Stage 1 complete)  
+Last updated: 2026-08-09 (Stage 2 complete - Documentation & Polish)  
 Reference architecture: `[habit_tracker_architecture.md](./habit_tracker_architecture.md)`
 
 This document captures what Antigravity built before hitting the model limit, plus fixes applied during Cursor handoff. Use it to resume work without re-reading the entire codebase.
@@ -145,6 +145,10 @@ cd client && npm run build
 ### Stage 1 — Dashboard charts (2026-08-09)
 5. **Recharts 7-day bar chart** — added `Weekly Progress` panel to Dashboard showing total completions per day over the last 7 days, with styled tooltip and accent-colored bars.
 
+### Stage 2 — Documentation & Polish (2026-08-09)
+6. **Application title updated** — changed `client/index.html` from generic "client" to "Aura - Habit Tracker".
+7. **Comprehensive README.md** — added full project documentation with quick start guide, API reference, architecture overview, troubleshooting, and production deployment guide.
+
 ---
 
 
@@ -156,21 +160,21 @@ cd client && npm run build
 ### Functional
 
 - [x] **Recharts wired up** — 7-day bar chart on Dashboard (`Weekly Progress` panel).
+- [x] **Refresh token revocation** — DB-backed refresh token sessions with rotation implemented (see `RefreshToken` table in schema).
+- [x] `PUT /api/auth/timezone` **Zod validation** — implemented with `timezoneSchema` validator (Luxon IANA check).
 - [ ] **End-to-end push testing** — scheduler + worker exist; needs manual verification with browser permission + matching reminder time.
-- [ ] **Refresh token revocation** — architecture describes DB-backed refresh sessions; current impl uses stateless JWT refresh cookies (no revocation table, no rotation).
-- [ ] `PUT /api/auth/timezone` **lacks Zod validation** — accepts raw body without schema middleware.
 - [ ] **Habit list payload size** — including all logs on `GET /habits` works for MVP but may need pagination or date-range filtering as histories grow.
 
 
 
 ### Structure / polish
 
+- [x] `README.md` **added** — comprehensive setup guide, API reference, troubleshooting.
+- [x] `client/index.html` **title updated** — now shows "Aura - Habit Tracker".
 - [ ] Architecture folder layout not fully followed — logic lives in `pages/` rather than split `components/`, `hooks/`, `layouts/`.
-- [ ] No `README.md` with setup instructions (use this file + architecture doc for now).
 - [ ] No tests (`server/tests/` empty / missing).
 - [ ] No `prisma/seed.ts`.
-- [ ] `server/src/test_db.ts` is a dev scratch script — safe to delete or move to a scripts folder.
-- [ ] `client/index.html` title still says "client" — should be "Aura" or "Habit Tracker".
+- [ ] `server/src/test_db.ts` is a dev scratch script — kept for debugging, can be removed if desired.
 - [ ] `server/dist/` may exist locally from builds — gitignored, not committed.
 
 
@@ -178,12 +182,12 @@ cd client && npm run build
 ### Deviations from architecture doc
 
 
-| Architecture                     | Current implementation                              |
-| -------------------------------- | --------------------------------------------------- |
-| DB-backed refresh token sessions | Stateless JWT refresh in httpOnly cookie            |
-| Controllers layer                | Route handlers inline in `routes/`                  |
-| CSS Modules                      | Global CSS variables in `index.css`                 |
-| Scheduler every 30 min           | Runs every 60 seconds (`startScheduler(60 * 1000)`) |
+| Architecture                     | Current implementation                                        | Status                |
+| -------------------------------- | ------------------------------------------------------------- | --------------------- |
+| DB-backed refresh token sessions | **DB-backed with rotation** (RefreshToken table implemented)  | ✅ Matches now        |
+| Controllers layer                | Route handlers inline in `routes/`                            | Minor - acceptable    |
+| CSS Modules                      | Global CSS variables in `index.css`                           | Minor - acceptable    |
+| Scheduler every 30 min           | Runs every 60 seconds (`startScheduler(60 * 1000)`)          | Better for testing    |
 
 
 ---
