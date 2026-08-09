@@ -4,6 +4,15 @@ import { DateTime } from 'luxon';
 import { useAuth } from '../context/AuthContext.js';
 import { api } from '../services/api.js';
 import type { Habit, FrequencyType } from '../types/index.js';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from 'recharts';
 import { 
   Plus, Calendar, Flame, Trophy, CheckCircle2, Circle, 
   Trash2, Edit3, Loader2, Sparkles, X
@@ -255,12 +264,21 @@ export const Dashboard: React.FC = () => {
   const last7Days = getLast7Days();
   const contribDays = getContributionGridDays();
 
-  // Aggregate completions per day for the contribution grid
+  // Aggregate completions per day for the contribution grid and chart
   const completionsByDate: { [date: string]: number } = {};
   habitsList.forEach((h) => {
     (h.logs || []).forEach((l) => {
       completionsByDate[l.date] = (completionsByDate[l.date] || 0) + 1;
     });
+  });
+
+  const weeklyChartData = last7Days.map((day) => {
+    const dateStr = day.toFormat('yyyy-MM-dd');
+    return {
+      label: day.toFormat('EEE'),
+      date: dateStr,
+      completions: completionsByDate[dateStr] || 0,
+    };
   });
 
   return (
@@ -581,6 +599,53 @@ export const Dashboard: React.FC = () => {
 
         {/* RIGHT COLUMN: Analytics/Grid & Guide */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          {/* 7-Day Completion Chart */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-lg)' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>Weekly Progress</h3>
+            <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '20px' }}>
+              Total habit completions over the last 7 days
+            </p>
+            <div style={{ width: '100%', height: 220 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weeklyChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fill: 'hsl(var(--text-muted))', fontSize: 12 }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fill: 'hsl(var(--text-muted))', fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                    contentStyle={{
+                      background: 'hsl(var(--bg-elevated))',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                    }}
+                    labelFormatter={(_, payload) => {
+                      const item = payload?.[0]?.payload as { date?: string } | undefined;
+                      return item?.date ?? '';
+                    }}
+                    formatter={(value) => [`${value} completion${value === 1 ? '' : 's'}`, 'Total']}
+                  />
+                  <Bar
+                    dataKey="completions"
+                    fill="hsl(var(--accent))"
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           {/* GitHub-style Heatmap Grid */}
           <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-lg)' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Completion Grid</h3>
