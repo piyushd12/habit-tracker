@@ -3,32 +3,70 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/db.js';
 import { validate } from '../middleware/validate.js';
-import { registerSchema, loginSchema } from '../middleware/validators.js';
-import { AppError, ConflictError, UnauthorizedError } from '../utils/errors.js';
+import { registerSchema, loginSchema, timezoneSchema } from '../middleware/validators.js';
+import { ConflictError, UnauthorizedError } from '../utils/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../types/index.js';
+import {
+  generateRefreshTokenValue,
+  getRefreshTokenExpiry,
+  hashRefreshToken,
+} from '../utils/tokens.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'habit-tracker-super-secret-key-12345-very-long-and-secure';
-const REFRESH_SECRET = process.env.REFRESH_SECRET || 'habit-tracker-refresh-super-secret-key-67890';
 
-// Helper to generate access token
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET environment variable is required in production');
+  }
+  console.warn('⚠️  WARNING: Using default JWT_SECRET in development. Set JWT_SECRET in production!');
+}
+
+const JWT_SECRET_FINAL = JWT_SECRET || 'habit-tracker-super-secret-key-12345-very-long-and-secure';
+
 const generateAccessToken = (userId: string, email: string, timezone: string): string => {
-  return jwt.sign({ id: userId, email, timezone }, JWT_SECRET, { expiresIn: '15m' });
+  return jwt.sign({ id: userId, email, timezone }, JWT_SECRET_FINAL, { expiresIn: '15m' });
 };
 
-// Helper to generate refresh token
-const generateRefreshToken = (userId: string): string => {
-  return jwt.sign({ id: userId }, REFRESH_SECRET, { expiresIn: '7d' });
-};
-
-// Set refresh token cookie helper
 const setRefreshTokenCookie = (res: Response, token: string) => {
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+
   res.cookie('refreshToken', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+};
+
+const issueSessionTokens = async (
+  res: Response,
+  user: { id: string; email: string; timezone: string }
+): Promise<string> => {
+  const accessToken = generateAccessToken(user.id, user.email, user.timezone);
+  const refreshToken = generateRefreshTokenValue();
+
+  await prisma.refreshToken.create({
+    data: {
+      userId: user.id,
+      tokenHash: hashRefreshToken(refreshToken),
+      expiresAt: getRefreshTokenExpiry(),
+    },
+  });
+
+  setRefreshTokenCookie(res, refreshToken);
+  return accessToken;
+};
+
+const revokeRefreshToken = async (token: string): Promise<void> => {
+  await prisma.refreshToken.deleteMany({
+    where: { tokenHash: hashRefreshToken(token) },
   });
 };
 
@@ -45,10 +83,8 @@ router.post(
         throw new ConflictError('Email address is already in use');
       }
 
-      // Hash password
       const hashedPassword = await bcrypt.hash(password, 12);
 
-      // Create user along with default reminder settings (enabled at 20:00 local time)
       const user = await prisma.user.create({
         data: {
           email,
@@ -63,10 +99,7 @@ router.post(
         },
       });
 
-      const accessToken = generateAccessToken(user.id, user.email, user.timezone);
-      const refreshToken = generateRefreshToken(user.id);
-
-      setRefreshTokenCookie(res, refreshToken);
+      const accessToken = await issueSessionTokens(res, user);
 
       res.status(201).json({
         status: 'success',
@@ -106,10 +139,7 @@ router.post(
         throw new UnauthorizedError('Invalid email or password');
       }
 
-      const accessToken = generateAccessToken(user.id, user.email, user.timezone);
-      const refreshToken = generateRefreshToken(user.id);
-
-      setRefreshTokenCookie(res, refreshToken);
+      const accessToken = await issueSessionTokens(res, user);
 
       res.status(200).json({
         status: 'success',
@@ -130,54 +160,66 @@ router.post(
 
 // POST /refresh
 router.post('/refresh', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // Grab refresh token from cookies
-  const refreshToken = req.cookies?.refreshToken;
+  const refreshToken = req.cookies?.refreshToken as string | undefined;
 
   if (!refreshToken) {
     return next(new UnauthorizedError('Refresh token is missing'));
   }
 
   try {
-    const decoded = jwt.verify(refreshToken, REFRESH_SECRET) as { id: string };
-    
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
+    const storedToken = await prisma.refreshToken.findUnique({
+      where: { tokenHash: hashRefreshToken(refreshToken) },
+      include: { user: true },
     });
 
-    if (!user) {
-      throw new UnauthorizedError('User not found');
+    if (!storedToken || storedToken.expiresAt < new Date()) {
+      if (storedToken) {
+        await revokeRefreshToken(refreshToken);
+      }
+      throw new UnauthorizedError('Invalid or expired refresh token');
     }
 
-    const accessToken = generateAccessToken(user.id, user.email, user.timezone);
+    // Rotate refresh token on each use
+    await revokeRefreshToken(refreshToken);
+    const accessToken = await issueSessionTokens(res, storedToken.user);
 
     res.status(200).json({
       status: 'success',
       data: {
         accessToken,
         user: {
-          id: user.id,
-          email: user.email,
-          timezone: user.timezone,
+          id: storedToken.user.id,
+          email: storedToken.user.email,
+          timezone: storedToken.user.timezone,
         },
       },
     });
   } catch (error) {
-    next(new UnauthorizedError('Invalid or expired refresh token'));
+    next(error instanceof UnauthorizedError ? error : new UnauthorizedError('Invalid or expired refresh token'));
   }
 });
 
 // POST /logout
-router.post('/logout', (req: Request, res: Response) => {
-  res.clearCookie('refreshToken', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-  });
+router.post('/logout', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const refreshToken = req.cookies?.refreshToken as string | undefined;
+    if (refreshToken) {
+      await revokeRefreshToken(refreshToken);
+    }
 
-  res.status(200).json({
-    status: 'success',
-    message: 'Logged out successfully',
-  });
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Logged out successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // GET /me
@@ -205,29 +247,34 @@ router.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Response, 
 });
 
 // PUT /timezone
-router.put('/timezone', requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const userId = req.user!.id;
-    const { timezone } = req.body;
+router.put(
+  '/timezone',
+  requireAuth,
+  validate(timezoneSchema),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { timezone } = req.body as { timezone: string };
 
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: { timezone },
-    });
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: { timezone },
+      });
 
-    res.status(200).json({
-      status: 'success',
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          timezone: user.timezone,
+      res.status(200).json({
+        status: 'success',
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            timezone: user.timezone,
+          },
         },
-      },
-    });
-  } catch (error) {
-    next(error);
+      });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 export default router;
