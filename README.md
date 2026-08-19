@@ -11,14 +11,12 @@ A production-ready habit tracking web application with streak calculation, timez
 **Authentication:** JWT (access + refresh tokens) with bcrypt password hashing  
 **Push Notifications:** Web Push API with VAPID
 
-📖 **Full architecture documentation:** [habit_tracker_architecture.md](./habit_tracker_architecture.md)  
-📋 **Implementation status:** [till_now.md](./till_now.md)
-
 ---
 
 ## ✨ Features
 
 ### Core Functionality
+
 - ✅ **User Authentication** - Secure signup/login with JWT tokens and refresh token rotation
 - ✅ **Habit CRUD** - Create, read, update, and delete habits with daily or custom schedules
 - ✅ **Daily Check-offs** - Mark habits complete with timezone-aware date boundaries
@@ -26,6 +24,7 @@ A production-ready habit tracking web application with streak calculation, timez
 - ✅ **Smart Dashboard** - Real-time stats, completion rates, and progress tracking
 
 ### Advanced Features
+
 - ✅ **Timezone Handling** - All logging respects user's local timezone (prevents streak corruption)
 - ✅ **Custom Schedules** - Support for DAILY and CUSTOM (specific weekdays) frequencies
 - ✅ **Data Visualizations**:
@@ -39,12 +38,6 @@ A production-ready habit tracking web application with streak calculation, timez
 ---
 
 ## 🚀 Quick Start
-
-### Prerequisites
-
-- **Node.js** 18+ ([download](https://nodejs.org/))
-- **Docker** & Docker Compose ([download](https://www.docker.com/))
-- **Git**
 
 ### 1. Clone the Repository
 
@@ -60,6 +53,7 @@ docker compose up -d
 ```
 
 This starts:
+
 - PostgreSQL 15 on port `5432`
 - Redis 7 on port `6379`
 
@@ -94,7 +88,7 @@ npx prisma migrate dev
 npm run dev
 ```
 
-The backend will start on **http://localhost:5000**
+The backend will start on **<http://localhost:5000>**
 
 ### 4. Frontend Setup
 
@@ -117,11 +111,12 @@ npm install
 npm run dev
 ```
 
-The frontend will start on **http://localhost:5173**
+The frontend will start on **<http://localhost:5173>**
 
 ### 5. Access the Application
 
 Open your browser and navigate to:
+
 ```
 http://localhost:5173
 ```
@@ -270,7 +265,7 @@ cd client && npm run build
 ### Authentication (`/api/auth`)
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | POST | `/register` | Create new user account |
 | POST | `/login` | Authenticate user |
 | POST | `/logout` | Revoke refresh token and clear session |
@@ -281,7 +276,7 @@ cd client && npm run build
 ### Habits (`/api/habits`)
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | GET | `/` | List all user habits (includes logs) |
 | POST | `/` | Create new habit |
 | GET | `/:id` | Get single habit details |
@@ -291,7 +286,7 @@ cd client && npm run build
 ### Habit Logs (`/api/habits/:id`)
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | POST | `/logs` | Mark habit complete for a date |
 | DELETE | `/logs/:date` | Un-mark habit completion |
 | GET | `/streak` | Get current streak calculation |
@@ -299,12 +294,13 @@ cd client && npm run build
 ### Reminders (`/api/reminders`)
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | GET | `/settings` | Get reminder settings |
 | PUT | `/settings` | Update reminder time and enabled state |
 | POST | `/subscribe` | Register Web Push subscription |
 
 All endpoints return JSON with consistent structure:
+
 - **Success**: `{ status: "success", data: { ... } }`
 - **Error**: `{ status: "error", message: "..." }`
 
@@ -330,21 +326,17 @@ The app handles timezone boundaries correctly to prevent streak corruption:
 
 ## 🔔 Push Notifications Setup
 
-### Browser Requirements
-
-- **Chrome/Edge**: Full support
-- **Firefox**: Full support
-- **Safari**: Requires iOS 16.4+ / macOS 13+
-
 ### Configuration Steps
 
-1. **Generate VAPID Keys** (if not done already):
+1. **Generate VAPID Keys**:
+
    ```bash
    cd server
    npx web-push generate-vapid-keys
    ```
 
 2. **Add Keys to Server `.env`**:
+
    ```env
    VAPID_PUBLIC_KEY=<public key>
    VAPID_PRIVATE_KEY=<private key>
@@ -352,6 +344,7 @@ The app handles timezone boundaries correctly to prevent streak corruption:
    ```
 
 3. **Add Public Key to Client `.env`**:
+
    ```env
    VITE_VAPID_PUBLIC_KEY=<same public key as server>
    ```
@@ -397,214 +390,3 @@ The app handles timezone boundaries correctly to prevent streak corruption:
    - Current streak (highest among all habits)
    - Longest streak (all-time record)
    - Today's completion percentage
-
----
-
-## 🧪 Testing
-
-### Manual Testing Flow
-
-1. **Smoke Test**:
-   ```bash
-   # Start infrastructure
-   docker compose up -d
-   
-   # Start backend
-   cd server && npm run dev
-   
-   # Start frontend (new terminal)
-   cd client && npm run dev
-   ```
-
-2. **Test Sequence**:
-   - ✅ Register new account with timezone
-   - ✅ Create a DAILY habit
-   - ✅ Create a CUSTOM habit (e.g., Mon/Wed/Fri)
-   - ✅ Mark today's completion for both habits
-   - ✅ Verify streak counter increments
-   - ✅ Check visualizations update
-   - ✅ Navigate to Settings
-   - ✅ Change reminder time
-   - ✅ Enable push notifications (grant browser permission)
-   - ✅ Logout and login again
-   - ✅ Verify session persists
-
-### Unit Tests
-
-Currently, no automated tests are implemented. Recommended test coverage:
-
-- **Backend**:
-  - Streak calculation logic (`services/streaks.ts`)
-  - Authentication flows (`routes/auth.ts`)
-  - Input validation (all Zod schemas)
-
-- **Frontend**:
-  - Dashboard calculations
-  - Optimistic UI updates
-  - Date boundary checks
-
----
-
-## 🐛 Known Issues & Limitations
-
-### Documented in `till_now.md`
-
-1. **Refresh Token Revocation**: ✅ IMPLEMENTED (database-backed with rotation)
-2. **Timezone Validation**: ✅ IMPLEMENTED (Zod + Luxon IANA check)
-3. **Push Testing**: Requires manual browser testing with matching timezone/time
-4. **Habit List Payload**: Includes all logs; may need pagination for users with years of data
-
-### Not Critical for MVP
-
-- No automated test suite
-- No database seeding script
-- Service worker could use more sophisticated caching strategies
-- No email verification on signup
-- No password reset flow
-
----
-
-## 🚀 Production Deployment
-
-### Environment Variables
-
-**Backend** (`server/.env`):
-```env
-NODE_ENV=production
-PORT=5000
-DATABASE_URL=postgresql://user:pass@production-db:5432/habit_tracker
-REDIS_URL=redis://production-redis:6379
-JWT_SECRET=<generate-secure-64-char-string>
-CLIENT_URL=https://your-domain.com
-VAPID_PUBLIC_KEY=<your-key>
-VAPID_PRIVATE_KEY=<your-key>
-VAPID_SUBJECT=mailto:your-email@example.com
-```
-
-**Frontend** (`client/.env`):
-```env
-VITE_API_URL=https://api.your-domain.com
-VITE_VAPID_PUBLIC_KEY=<same-as-backend>
-```
-
-### Build & Deploy
-
-```bash
-# Backend
-cd server
-npm install --production
-npm run build
-npm start
-
-# Frontend
-cd client
-npm install
-npm run build
-# Serve the 'dist' folder via Nginx/Cloudflare Pages/Vercel
-```
-
-### Database Migrations
-
-```bash
-cd server
-npx prisma migrate deploy
-```
-
-### Recommended Stack
-
-- **Frontend Hosting**: Vercel, Netlify, Cloudflare Pages
-- **Backend Hosting**: Railway, Fly.io, Render, AWS ECS
-- **Database**: Supabase, Neon, Railway Postgres, AWS RDS
-- **Redis**: Upstash, Railway Redis, AWS ElastiCache
-- **SSL**: Automatic via most hosting platforms
-
----
-
-## 📝 License
-
-[Add your license here]
-
----
-
-## 🤝 Contributing
-
-[Add contribution guidelines here]
-
----
-
-## 👥 Authors
-
-Built with care as part of a prompt engineering competition.
-
----
-
-## 📚 Additional Resources
-
-- **Architecture Deep Dive**: [habit_tracker_architecture.md](./habit_tracker_architecture.md)
-- **Implementation Notes**: [till_now.md](./till_now.md)
-- **Prisma Docs**: https://www.prisma.io/docs
-- **Web Push Protocol**: https://web.dev/push-notifications-overview/
-- **Luxon (Timezone Library)**: https://moment.github.io/luxon/
-
----
-
-## 🆘 Troubleshooting
-
-### Database Connection Issues
-
-```bash
-# Check if PostgreSQL is running
-docker ps | grep postgres
-
-# View logs
-docker logs habit-tracker-postgres
-
-# Restart containers
-docker compose down && docker compose up -d
-```
-
-### Migration Errors
-
-```bash
-# Reset database (⚠️ destroys all data)
-cd server
-npx prisma migrate reset
-
-# Create fresh migration
-npx prisma migrate dev --name init
-```
-
-### Redis Connection Issues
-
-```bash
-# Check if Redis is running
-docker ps | grep redis
-
-# Test connection
-docker exec -it habit-tracker-redis redis-cli ping
-# Should return: PONG
-```
-
-### Frontend Build Errors
-
-```bash
-# Clear node_modules and reinstall
-rm -rf node_modules package-lock.json
-npm install
-
-# Clear Vite cache
-rm -rf node_modules/.vite
-npm run dev
-```
-
-### Push Notifications Not Working
-
-1. **Check VAPID keys match** between server and client `.env`
-2. **Verify HTTPS** (required for Web Push, except localhost)
-3. **Grant browser permissions** in Settings
-4. **Check service worker registration** in DevTools → Application → Service Workers
-5. **Verify scheduler is running** (check server logs)
-
----
-
-**Happy Habit Tracking! 🌟**
