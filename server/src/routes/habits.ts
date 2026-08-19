@@ -1,4 +1,5 @@
 import { Router, Response, NextFunction } from 'express';
+import { DateTime } from 'luxon';
 import { prisma } from '../config/db.js';
 import { validate } from '../middleware/validate.js';
 import { createHabitSchema, updateHabitSchema } from '../middleware/validators.js';
@@ -12,14 +13,20 @@ const router = Router();
 // Apply auth middleware to all habit routes
 router.use(requireAuth);
 
-// GET /api/habits - Fetch all habits for current user
+// GET /api/habits - Fetch all habits for current user (logs limited to last 84 days)
 router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const userId = req.user!.id;
+    const timezone = req.user!.timezone;
+    const logCutoffDate = DateTime.now().setZone(timezone).minus({ days: 84 }).toFormat('yyyy-MM-dd');
+
     const habits = await prisma.habit.findMany({
       where: { userId },
       include: {
         logs: {
+          where: {
+            date: { gte: logCutoffDate },
+          },
           orderBy: { date: 'desc' },
         },
       },

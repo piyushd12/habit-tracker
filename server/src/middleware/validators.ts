@@ -1,10 +1,18 @@
 import { z } from 'zod';
+import { IANAZone } from 'luxon';
+
+const ianaTimezone = z
+  .string()
+  .min(1, 'Timezone is required')
+  .refine((tz) => IANAZone.isValidZone(tz), {
+    message: 'Invalid IANA timezone identifier',
+  });
 
 export const registerSchema = z.object({
   body: z.object({
     email: z.string().email('Invalid email address'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
-    timezone: z.string().min(1, 'Timezone is required').default('UTC'),
+    timezone: ianaTimezone.default('UTC'),
   }),
 });
 
@@ -61,5 +69,11 @@ export const pushSubscriptionSchema = z.object({
       p256dh: z.string().min(1, 'p256dh key is required'),
       auth: z.string().min(1, 'auth key is required'),
     }),
+  }),
+});
+
+export const timezoneSchema = z.object({
+  body: z.object({
+    timezone: ianaTimezone,
   }),
 });

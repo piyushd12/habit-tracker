@@ -24,3 +24,8 @@ npm-debug.log*
 # Prisma
 server/prisma/*.db
 server/prisma/*.db-journal
+
+# Documentation (local only, not committed)
+PRODUCTION_READINESS_REVIEW.md
+habit_tracker_architecture.md
+till_now.md

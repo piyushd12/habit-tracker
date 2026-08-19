@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test": "vitest run"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
@@ -19,6 +20,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "luxon": "^3.7.2",
@@ -39,6 +41,13 @@
     "@types/web-push": "^3.6.4",
     "prisma": "^7.9.1",
     "tsx": "^4.23.11",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  },
+  "allowScripts": {
+    "express-rate-limit@8.6.2": true
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }
