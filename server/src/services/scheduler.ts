@@ -92,25 +92,31 @@ export async function checkAndScheduleReminders(): Promise<void> {
     for (const tz of activeTimezones) {
       // Calculate local time in this timezone
       const localTime = nowUtc.setZone(tz);
-      const localHourMinute = localTime.toFormat('HH:mm'); // e.g. "21:00" or "21:30"
+      const localHourMinute = localTime.toFormat('HH:mm'); // e.g. "21:00"
+      const localDateStr = localTime.toFormat('yyyy-MM-dd'); // e.g. "2026-08-28"
 
-      // We query users in this timezone whose target reminder time matches the local time
+      // Query users whose target reminder time has passed/matches, and who haven't received a reminder today
       const usersToRemind = await prisma.user.findMany({
         where: {
           timezone: tz,
           reminderSettings: {
             enabled: true,
-            time: localHourMinute,
+            time: {
+              lte: localHourMinute,
+            },
+            OR: [
+              { lastSentDate: null },
+              { lastSentDate: { not: localDateStr } },
+            ],
           },
         },
         include: {
           pushSubscriptions: true,
-          // Get habits that are NOT completed today to customize notification payload
           habits: {
             include: {
               logs: {
                 where: {
-                  date: localTime.toFormat('yyyy-MM-dd'),
+                  date: localDateStr,
                 },
               },
             },
@@ -119,11 +125,27 @@ export async function checkAndScheduleReminders(): Promise<void> {
       });
 
       for (const user of usersToRemind) {
-        // Count uncompleted habits today
-        const uncompletedHabits = user.habits.filter((h) => h.logs.length === 0);
-        
+        // Mark as sent for today to prevent duplicates and reduce subsequent query size
+        await prisma.reminderSetting.update({
+          where: { userId: user.id },
+          data: { lastSentDate: localDateStr },
+        });
+
+        // Filter habits that are scheduled for *today* but not completed
+        const localDayOfWeek = localTime.weekday % 7; // Sun=0, Mon=1...Sat=6
+        const uncompletedHabits = user.habits.filter((h) => {
+          const scheduledDays = h.frequency === 'DAILY'
+            ? [0, 1, 2, 3, 4, 5, 6]
+            : h.specificDays;
+
+          if (!scheduledDays.includes(localDayOfWeek)) {
+            return false;
+          }
+          return h.logs.length === 0;
+        });
+
         if (uncompletedHabits.length === 0) {
-          // All habits done! No need to remind.
+          // No active habits scheduled or all done! No need to remind.
           continue;
         }
 

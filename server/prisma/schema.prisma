@@ -54,13 +54,14 @@ model HabitLog {
 }
 
 model ReminderSetting {
-  id        String   @id @default(uuid())
-  userId    String   @unique @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  time      String   // E.g., "20:00" representing local execution time
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  userId       String   @unique @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  time         String   // E.g., "20:00" representing local execution time
+  enabled      Boolean  @default(true)
+  lastSentDate String?  @map("last_sent_date") // Format: YYYY-MM-DD
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@index([time])
   @@map("reminder_settings")

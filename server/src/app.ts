@@ -12,7 +12,7 @@ import { startScheduler, stopScheduler } from './services/scheduler.js';
 import { prisma } from './config/db.js';
 import { redisConnection } from './config/redis.js';
 
-const app = express();
+export const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Configure CORS to support HTTPOnly cookies across local domains
@@ -100,7 +100,7 @@ app.use(errorHandler);
 // Start Server & Scheduler
 const server = app.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-  startScheduler(30 * 60 * 1000); // Check timezone buckets every 30 minutes
+  startScheduler(60 * 1000); // Check timezone buckets every 60 seconds
 });
 
 // Graceful Shutdown
