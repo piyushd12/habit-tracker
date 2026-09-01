@@ -15,10 +15,37 @@ import { redisConnection } from './config/redis.js';
 export const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Configure CORS to support HTTPOnly cookies across local domains
+// Configure CORS to support HTTPOnly cookies across local and Vercel production/preview deployments
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/$/, ''));
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+      if (!origin) return callback(null, true);
+
+      const normalizedOrigin = origin.replace(/\/$/, '');
+
+      // Allow configured origins in CLIENT_URL
+      if (allowedOrigins.includes(normalizedOrigin)) {
+        return callback(null, true);
+      }
+
+      // Allow any Vercel deployment domain (*.vercel.app)
+      if (/\.vercel\.app$/.test(normalizedOrigin)) {
+        return callback(null, true);
+      }
+
+      // Allow localhost dev environments
+      if (normalizedOrigin.includes('localhost') || normalizedOrigin.includes('127.0.0.1')) {
+        return callback(null, true);
+      }
+
+      console.warn(`⚠️  Blocked CORS origin: ${origin}`);
+      callback(new Error(`CORS origin not allowed: ${origin}`));
+    },
     credentials: true,
   })
 );
