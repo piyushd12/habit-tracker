@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
 import { Login } from './pages/Login.js';
 import { Register } from './pages/Register.js';
@@ -265,6 +266,7 @@ export const App: React.FC = () => {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
+        <Analytics />
       </AuthProvider>
     </BrowserRouter>
   );
